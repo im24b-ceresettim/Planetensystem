@@ -1,4 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 import { bodyById, childrenOf, type BodyDef } from '../data/bodies';
 import { AU_KM } from '../data/constants';
 import { simState } from '../state/simulation';
@@ -62,9 +69,49 @@ export interface InfoPanelProps {
   onClose: () => void;
 }
 
+const DEFAULT_PANEL_WIDTH = 330;
+const MIN_PANEL_WIDTH = 260;
+const MAX_PANEL_WIDTH = 560;
+
 export function InfoPanel({ panelId, onClose }: InfoPanelProps) {
   const def = panelId ? bodyById.get(panelId) : undefined;
   const [dist, setDist] = useState({ sun: 0, earth: 0 });
+  const [width, setWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const resetWidth = useCallback(() => setWidth(DEFAULT_PANEL_WIDTH), []);
+
+  const handleClose = useCallback(() => {
+    setWidth(DEFAULT_PANEL_WIDTH);
+    onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!panelId) setWidth(DEFAULT_PANEL_WIDTH);
+  }, [panelId]);
+
+  const onResizePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      resizeRef.current = { startX: e.clientX, startWidth: width };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [width],
+  );
+
+  const onResizePointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const r = resizeRef.current;
+    if (!r) return;
+    const next = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, r.startWidth - (e.clientX - r.startX)));
+    setWidth(next);
+  }, []);
+
+  const onResizePointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!resizeRef.current) return;
+    resizeRef.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  }, []);
 
   useEffect(() => {
     if (!def) return;
@@ -83,12 +130,32 @@ export function InfoPanel({ panelId, onClose }: InfoPanelProps) {
   const moonCount = childrenOf(def.id).filter((c) => c.type === 'moon').length;
 
   return (
-    <aside className="info-panel">
+    <aside className="info-panel" style={{ width }}>
+      <div
+        className="info-panel-resize"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize panel"
+        onPointerDown={onResizePointerDown}
+        onPointerMove={onResizePointerMove}
+        onPointerUp={onResizePointerUp}
+        onPointerCancel={onResizePointerUp}
+      />
       <div className="info-panel-header">
         <h2>{def.name}</h2>
-        <button className="close-button" onClick={onClose} title="Close panel">
-          ✕
-        </button>
+        <div className="info-panel-actions">
+          <button
+            className="panel-icon-button"
+            onClick={resetWidth}
+            title="Reset panel size"
+            type="button"
+          >
+            R
+          </button>
+          <button className="close-button" onClick={handleClose} title="Close panel" type="button">
+            ✕
+          </button>
+        </div>
       </div>
       <span className="body-type">{typeLabel(def)}</span>
       <p className="description">{def.facts.description}</p>

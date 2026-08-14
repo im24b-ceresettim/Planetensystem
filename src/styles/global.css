@@ -107,6 +107,36 @@ body,
   animation: panel-in 0.35s ease;
 }
 
+.info-panel-resize {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 10px;
+  height: 100%;
+  cursor: ew-resize;
+  touch-action: none;
+  border-radius: 14px 0 0 14px;
+}
+
+.info-panel-resize::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 3px;
+  height: 36px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18);
+  transition: background 0.15s ease;
+}
+
+.info-panel-resize:hover::after,
+.info-panel-resize:active::after {
+  background: rgba(127, 180, 255, 0.55);
+}
+
 @keyframes panel-in {
   from {
     opacity: 0;
@@ -124,6 +154,41 @@ body,
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 4px;
+}
+
+.info-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.panel-icon-button,
+.close-button {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.panel-icon-button {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.panel-icon-button:hover,
+.close-button:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .info-panel h2 {
@@ -151,26 +216,6 @@ body,
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--text-secondary);
-}
-
-.close-button {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.close-button:hover {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.12);
 }
 
 .info-reopen {
@@ -434,8 +479,12 @@ body,
 
 @media (max-width: 720px) {
   .info-panel {
-    width: calc(100vw - 32px);
+    width: calc(100vw - 32px) !important;
     max-height: 45vh;
+  }
+
+  .info-panel-resize {
+    display: none;
   }
 
   .controls-hint {
