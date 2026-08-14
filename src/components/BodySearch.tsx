@@ -14,6 +14,14 @@ function bodySubtitle(def: BodyDef): string {
   }
 }
 
+function bodySearchText(def: BodyDef): string {
+  return `${def.name} ${def.id} ${bodySubtitle(def)}`.toLowerCase();
+}
+
+function matchesQuery(def: BodyDef, q: string): boolean {
+  return bodySearchText(def).includes(q);
+}
+
 export interface BodySearchProps {
   onSelect: (id: string) => void;
 }
@@ -26,9 +34,7 @@ export function BodySearch({ onSelect }: BodySearchProps) {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = q
-      ? BODIES.filter((b) => b.name.toLowerCase().includes(q) || b.id.includes(q))
-      : [...BODIES];
+    const filtered = q ? BODIES.filter((b) => matchesQuery(b, q)) : [...BODIES];
     return filtered.sort((a, b) => a.name.localeCompare(b.name));
   }, [query]);
 
