@@ -36,10 +36,10 @@ function OrbitLine({ radius, moon }: { radius: number; moon: boolean }) {
   return (
     <Line
       points={points}
-      color={moon ? '#39425c' : '#49587a'}
+      color="#b8c0cc"
       transparent
-      opacity={moon ? 0.34 : 0.42}
-      lineWidth={1}
+      opacity={moon ? 0.2 : 0.26}
+      lineWidth={moon ? 0.25 : 0.5}
     />
   );
 }
