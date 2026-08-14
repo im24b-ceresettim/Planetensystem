@@ -40,7 +40,10 @@ export function ControlsHint() {
           <b>Space / Shift</b> <span>move up / down</span>
         </li>
         <li>
-          <b>Click a body</b> <span>focus &amp; info</span>
+          <b>Search</b> <span>find and focus any body</span>
+        </li>
+        <li>
+          <b>Click a body</b> <span>focus camera</span>
         </li>
         <li>
           <b>Esc</b> <span>release camera focus</span>

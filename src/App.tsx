@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { BodySearch } from './components/BodySearch';
 import { ControlsHint } from './components/ControlsHint';
 import { InfoPanel, InfoReopenButton } from './components/InfoPanel';
 import { LoadingOverlay } from './components/LoadingOverlay';
@@ -30,6 +31,7 @@ export default function App() {
 
   return (
     <>
+      <BodySearch onSelect={handleSelect} />
       <Scene
         focusedId={focusedId}
         onSelect={handleSelect}
