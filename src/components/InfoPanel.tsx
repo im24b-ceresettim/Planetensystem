@@ -70,8 +70,12 @@ export interface InfoPanelProps {
 }
 
 const DEFAULT_PANEL_WIDTH = 330;
-const MIN_PANEL_WIDTH = 260;
-const MAX_PANEL_WIDTH = 560;
+const PANEL_EDGE_MARGIN = 32; // 16px inset from each screen edge at full stretch
+const MIN_PANEL_WIDTH = 200;
+
+function maxPanelWidth(): number {
+  return Math.max(MIN_PANEL_WIDTH, window.innerWidth - PANEL_EDGE_MARGIN);
+}
 
 export function InfoPanel({ panelId, onClose }: InfoPanelProps) {
   const def = panelId ? bodyById.get(panelId) : undefined;
@@ -90,6 +94,12 @@ export function InfoPanel({ panelId, onClose }: InfoPanelProps) {
     if (!panelId) setWidth(DEFAULT_PANEL_WIDTH);
   }, [panelId]);
 
+  useEffect(() => {
+    const onResize = () => setWidth((w) => Math.min(w, maxPanelWidth()));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const onResizePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       e.preventDefault();
@@ -103,7 +113,10 @@ export function InfoPanel({ panelId, onClose }: InfoPanelProps) {
   const onResizePointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     const r = resizeRef.current;
     if (!r) return;
-    const next = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, r.startWidth - (e.clientX - r.startX)));
+    const next = Math.min(
+      maxPanelWidth(),
+      Math.max(MIN_PANEL_WIDTH, r.startWidth - (e.clientX - r.startX)),
+    );
     setWidth(next);
   }, []);
 
