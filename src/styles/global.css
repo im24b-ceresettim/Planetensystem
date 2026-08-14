@@ -198,6 +198,25 @@ body,
   border: 1px solid var(--panel-border);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.body-search-results::-webkit-scrollbar {
+  width: 6px;
+}
+
+.body-search-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.body-search-results::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+}
+
+.body-search-results::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .body-search-results li {
