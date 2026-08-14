@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   DEFAULT_SPEED_PRESET_ID,
   SPEED_PRESETS,
@@ -8,12 +8,6 @@ import { simState } from '../state/simulation';
 
 export function TimeControls() {
   const [activeId, setActiveId] = useState(DEFAULT_SPEED_PRESET_ID);
-  const [days, setDays] = useState(0);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setDays(simState.days), 250);
-    return () => window.clearInterval(timer);
-  }, []);
 
   const pick = (presetId: string, orbitSeconds: number, target: HTMLButtonElement) => {
     simState.speedDaysPerSec = speedFromOrbitSeconds(orbitSeconds);
@@ -33,7 +27,6 @@ export function TimeControls() {
           {preset.label}
         </button>
       ))}
-      <span className="sim-clock">T+{days.toFixed(0)} d</span>
     </div>
   );
 }
