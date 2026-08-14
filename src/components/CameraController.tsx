@@ -1,30 +1,88 @@
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Euler, MathUtils, PerspectiveCamera, Vector3 } from 'three';
-import { CAMERA_MAX_RADIUS, CAMERA_MIN_RADIUS } from '../data/constants';
+import {
+  CAMERA_MAX_RADIUS,
+  CAMERA_MIN_RADIUS,
+  DOLLY_FRACTION,
+  MIN_DOLLY_STEP,
+} from '../data/constants';
 import { bodyRegistry } from '../state/simulation';
 
 const FORWARD = new Vector3();
 const RIGHT = new Vector3();
 const BODY_POS = new Vector3();
 const TARGET = new Vector3();
+const TO_BODY = new Vector3();
 const EULER = new Euler(0, 0, 0, 'YXZ');
 
-function panScalePerPixel(camera: PerspectiveCamera, canvasHeight: number): number {
-  const dist = MathUtils.clamp(camera.position.length(), CAMERA_MIN_RADIUS, CAMERA_MAX_RADIUS);
-  const fovRad = (camera.fov * Math.PI) / 180;
-  return (dist * 2 * Math.tan(fovRad / 2)) / canvasHeight;
+function halfFovTan(camera: PerspectiveCamera): number {
+  return Math.tan((camera.fov * Math.PI) / 360);
+}
+
+/** Distance to the nearest body surface — drives pan and vertical speed. */
+function nearestSurfaceDistance(camera: PerspectiveCamera): number {
+  if (bodyRegistry.size === 0) {
+    return MathUtils.clamp(camera.position.length(), CAMERA_MIN_RADIUS, CAMERA_MAX_RADIUS);
+  }
+
+  let nearest = CAMERA_MAX_RADIUS;
+  for (const h of bodyRegistry.values()) {
+    h.orbitGroup.getWorldPosition(BODY_POS);
+    const surface = camera.position.distanceTo(BODY_POS) - h.radiusUnits;
+    nearest = Math.min(nearest, Math.max(surface, 0.3));
+  }
+  return nearest;
+}
+
+function panStep(camera: PerspectiveCamera): number {
+  return nearestSurfaceDistance(camera) * halfFovTan(camera) * 0.004;
+}
+
+/** Nearest ray–sphere hit distance along the view axis; null if no body in front. */
+function nearestHitDistance(camera: PerspectiveCamera): number | null {
+  camera.getWorldDirection(FORWARD);
+  let best: number | null = null;
+
+  for (const h of bodyRegistry.values()) {
+    h.orbitGroup.getWorldPosition(BODY_POS);
+    const r = h.radiusUnits;
+    TO_BODY.subVectors(camera.position, BODY_POS);
+    const b = TO_BODY.dot(FORWARD);
+    const disc = b * b - TO_BODY.lengthSq() + r * r;
+    if (disc < 0) continue;
+    const t = -b - Math.sqrt(disc);
+    if (t > 0.05 && (best === null || t < best)) best = t;
+  }
+  return best;
+}
+
+/** Proportional dolly step along the view axis. */
+function dollyStepAlongView(camera: PerspectiveCamera): number {
+  const hit = nearestHitDistance(camera);
+  const base = hit ?? camera.position.length();
+  return Math.max(MIN_DOLLY_STEP, base * DOLLY_FRACTION);
+}
+
+/** Push camera outside any body it ended up inside after a dolly. */
+function resolveBodyPenetration(camera: PerspectiveCamera) {
+  for (const h of bodyRegistry.values()) {
+    h.orbitGroup.getWorldPosition(BODY_POS);
+    const minDist = h.radiusUnits * 1.2;
+    TO_BODY.subVectors(camera.position, BODY_POS);
+    const dist = TO_BODY.length();
+    if (dist < minDist && dist > 1e-8) {
+      TO_BODY.multiplyScalar(minDist / dist);
+      camera.position.copy(BODY_POS).add(TO_BODY);
+    }
+  }
 }
 
 interface FocusState {
   id: string;
-  /** World-space unit vector pointing from the body towards the camera. */
   dir: Vector3;
-  /** Desired camera distance from the body centre. */
   dist: number;
-  /** Smoothed actual distance (eases towards `dist`). */
   distNow: number;
-  /** Fly-in transition progress, 0..1. */
   t: number;
   from: Vector3;
 }
@@ -37,7 +95,6 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
   const pitch = useRef(0);
   const keys = useRef({ up: false, down: false });
   const drag = useRef<{ button: number; x: number; y: number } | null>(null);
-  const wheelImpulse = useRef(0);
   const focus = useRef<FocusState | null>(null);
 
   const syncAnglesFromCamera = () => {
@@ -52,7 +109,6 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera]);
 
-  // ------------------------------------------------------- input listeners
   useEffect(() => {
     const el = gl.domElement;
 
@@ -72,7 +128,6 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
 
       if (d.button === 2) {
         if (focus.current) {
-          // Orbit the attachment point around the focused body.
           const dir = focus.current.dir;
           const theta = Math.atan2(dir.x, dir.z) - dx * 0.006;
           const phi = MathUtils.clamp(
@@ -86,8 +141,8 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
           pitch.current = MathUtils.clamp(pitch.current - dy * 0.0034, -1.55, 1.55);
         }
       } else if (d.button === 0 && !focus.current) {
-        // Horizontal pan: grab space and drag it along the XZ plane.
-        const s = panScalePerPixel(camera as PerspectiveCamera, el.clientHeight);
+        const persp = camera as PerspectiveCamera;
+        const s = panStep(persp);
         RIGHT.set(1, 0, 0).applyQuaternion(camera.quaternion);
         RIGHT.y = 0;
         RIGHT.normalize();
@@ -110,14 +165,21 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
       e.preventDefault();
       const sign = Math.sign(e.deltaY);
       const f = focus.current;
+
       if (f) {
         const h = bodyRegistry.get(f.id);
         const minDist = h ? h.radiusUnits * 1.6 : 1;
         const maxDist = h ? Math.max(h.radiusUnits * 90, 40) : 500;
         f.dist = MathUtils.clamp(f.dist * (1 + 0.14 * sign), minDist, maxDist);
-      } else {
-        wheelImpulse.current += -sign * MathUtils.clamp(camera.position.length() * 0.13, 0.5, 420);
+        return;
       }
+
+      const persp = camera as PerspectiveCamera;
+      const zoomIn = sign < 0;
+      const step = dollyStepAlongView(persp);
+      camera.getWorldDirection(FORWARD);
+      camera.position.addScaledVector(FORWARD, zoomIn ? step : -step);
+      resolveBodyPenetration(persp);
     };
 
     const onContextMenu = (e: Event) => e.preventDefault();
@@ -158,7 +220,6 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gl, camera]);
 
-  // ------------------------------------------------- focus enter / leave
   useEffect(() => {
     if (selectedId) {
       const h = bodyRegistry.get(selectedId);
@@ -168,28 +229,25 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
       if (dir.lengthSq() < 1e-8) dir.set(0.4, 0.25, 1);
       dir.normalize();
       if (dir.y < 0.12) {
-        // Approach slightly from above for a nicer framing.
         dir.y = 0.12;
         dir.normalize();
       }
+      const distNow = camera.position.distanceTo(BODY_POS);
       focus.current = {
         id: selectedId,
         dir,
         dist: Math.max(h.radiusUnits * 4.2, h.radiusUnits + 0.9),
-        distNow: camera.position.distanceTo(BODY_POS),
+        distNow,
         t: 0,
         from: camera.position.clone(),
       };
     } else if (focus.current) {
       focus.current = null;
-      // Continue free flight seamlessly from the current orientation.
       syncAnglesFromCamera();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, camera]);
 
-  // ------------------------------------------------------------ per frame
-  // Priority -5: runs after SolarSystem (-10) moved the bodies.
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
     const f = focus.current;
@@ -202,7 +260,7 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
       TARGET.copy(f.dir).multiplyScalar(f.distNow).add(BODY_POS);
       if (f.t < 1) {
         f.t = Math.min(1, f.t + dt / 0.85);
-        const k = f.t * f.t * (3 - 2 * f.t); // smoothstep ease
+        const k = f.t * f.t * (3 - 2 * f.t);
         camera.position.lerpVectors(f.from, TARGET, k);
       } else {
         camera.position.copy(TARGET);
@@ -213,17 +271,10 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
 
     camera.quaternion.setFromEuler(EULER.set(pitch.current, yaw.current, 0, 'YXZ'));
 
-    const dist = camera.position.length();
-    const moveSpeed = MathUtils.clamp(dist * 0.35, 3, 700);
-    if (keys.current.up) camera.position.y += moveSpeed * dt;
-    if (keys.current.down) camera.position.y -= moveSpeed * dt;
-
-    if (Math.abs(wheelImpulse.current) > 0.001) {
-      const step = wheelImpulse.current * Math.min(1, dt * 9);
-      camera.getWorldDirection(FORWARD);
-      camera.position.addScaledVector(FORWARD, step);
-      wheelImpulse.current -= step;
-    }
+    const persp = camera as PerspectiveCamera;
+    const verticalSpeed = nearestSurfaceDistance(persp) * 0.35;
+    if (keys.current.up) camera.position.y += verticalSpeed * dt;
+    if (keys.current.down) camera.position.y -= verticalSpeed * dt;
 
     const len = camera.position.length();
     if (len < CAMERA_MIN_RADIUS) camera.position.setLength(CAMERA_MIN_RADIUS);

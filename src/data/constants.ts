@@ -20,6 +20,9 @@ export const MIN_RADIUS_UNITS = 0.055;
 export const CAMERA_MIN_RADIUS = 8;
 export const CAMERA_MAX_RADIUS = 6000;
 
+export const DOLLY_FRACTION = 0.1;
+export const MIN_DOLLY_STEP = 0.05;
+
 export const STARFIELD_RADIUS = 9000;
 export const STARFIELD_TEXTURE = '/textures/stars_milky_way.jpg';
 
@@ -49,7 +52,7 @@ export const SPEED_PRESETS: readonly SpeedPreset[] = [
   {
     id: '1x',
     orbitSeconds: 86_400,
-    label: '1×',
+    label: '1d',
     tooltip: 'Earth completes one orbit in 1 day',
   },
   {
