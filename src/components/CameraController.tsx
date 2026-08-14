@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Euler, MathUtils, Vector3 } from 'three';
+import { CAMERA_MAX_RADIUS, CAMERA_MIN_RADIUS } from '../data/constants';
 import { bodyRegistry } from '../state/simulation';
 
 const FORWARD = new Vector3();
@@ -219,8 +220,8 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
     }
 
     const len = camera.position.length();
-    if (len < 8) camera.position.setLength(8);
-    else if (len > 12000) camera.position.setLength(12000);
+    if (len < CAMERA_MIN_RADIUS) camera.position.setLength(CAMERA_MIN_RADIUS);
+    else if (len > CAMERA_MAX_RADIUS) camera.position.setLength(CAMERA_MAX_RADIUS);
   }, -5);
 
   return null;

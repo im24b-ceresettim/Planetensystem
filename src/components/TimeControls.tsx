@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
-import { SPEED_PRESETS } from '../data/constants';
+import {
+  DEFAULT_SPEED_PRESET_ID,
+  SPEED_PRESETS,
+  speedFromOrbitSeconds,
+} from '../data/constants';
 import { simState } from '../state/simulation';
 
-function label(speed: number): string {
-  if (speed === 0) return 'Pause';
-  return `${speed} d/s`;
-}
-
 export function TimeControls() {
-  const [speed, setSpeed] = useState(simState.speedDaysPerSec);
+  const [activeId, setActiveId] = useState(DEFAULT_SPEED_PRESET_ID);
   const [days, setDays] = useState(0);
 
   useEffect(() => {
@@ -16,21 +15,22 @@ export function TimeControls() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const pick = (value: number, target: HTMLButtonElement) => {
-    simState.speedDaysPerSec = value;
-    setSpeed(value);
+  const pick = (presetId: string, orbitSeconds: number, target: HTMLButtonElement) => {
+    simState.speedDaysPerSec = speedFromOrbitSeconds(orbitSeconds);
+    setActiveId(presetId);
     target.blur(); // keep Space free for camera movement
   };
 
   return (
-    <div className="time-controls" title="Simulation speed (simulated days per second)">
+    <div className="time-controls">
       {SPEED_PRESETS.map((preset) => (
         <button
-          key={preset}
-          className={speed === preset ? 'active' : ''}
-          onClick={(e) => pick(preset, e.currentTarget)}
+          key={preset.id}
+          className={activeId === preset.id ? 'active' : ''}
+          title={preset.tooltip}
+          onClick={(e) => pick(preset.id, preset.orbitSeconds, e.currentTarget)}
         >
-          {label(preset)}
+          {preset.label}
         </button>
       ))}
       <span className="sim-clock">T+{days.toFixed(0)} d</span>

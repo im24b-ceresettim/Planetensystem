@@ -1,6 +1,6 @@
 import type { Group, Object3D } from 'three';
 import type { BodyDef } from '../data/bodies';
-import { DEFAULT_SPEED_DAYS_PER_SEC } from '../data/constants';
+import { defaultSpeedDaysPerSec } from '../data/constants';
 
 /**
  * Mutable simulation clock, advanced once per frame inside the canvas and
@@ -8,7 +8,7 @@ import { DEFAULT_SPEED_DAYS_PER_SEC } from '../data/constants';
  */
 export const simState = {
   days: 0,
-  speedDaysPerSec: DEFAULT_SPEED_DAYS_PER_SEC,
+  speedDaysPerSec: defaultSpeedDaysPerSec(),
 };
 
 export interface BodyHandle {
