@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Euler, MathUtils, Vector3 } from 'three';
+import { Euler, MathUtils, PerspectiveCamera, Vector3 } from 'three';
 import { CAMERA_MAX_RADIUS, CAMERA_MIN_RADIUS } from '../data/constants';
 import { bodyRegistry } from '../state/simulation';
 
@@ -9,6 +9,12 @@ const RIGHT = new Vector3();
 const BODY_POS = new Vector3();
 const TARGET = new Vector3();
 const EULER = new Euler(0, 0, 0, 'YXZ');
+
+function panScalePerPixel(camera: PerspectiveCamera, canvasHeight: number): number {
+  const dist = MathUtils.clamp(camera.position.length(), CAMERA_MIN_RADIUS, CAMERA_MAX_RADIUS);
+  const fovRad = (camera.fov * Math.PI) / 180;
+  return (dist * 2 * Math.tan(fovRad / 2)) / canvasHeight;
+}
 
 interface FocusState {
   id: string;
@@ -81,7 +87,7 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
         }
       } else if (d.button === 0 && !focus.current) {
         // Horizontal pan: grab space and drag it along the XZ plane.
-        const s = MathUtils.clamp(camera.position.length(), 6, 4000) * 0.0016;
+        const s = panScalePerPixel(camera as PerspectiveCamera, el.clientHeight);
         RIGHT.set(1, 0, 0).applyQuaternion(camera.quaternion);
         RIGHT.y = 0;
         RIGHT.normalize();
