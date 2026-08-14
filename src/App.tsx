@@ -24,7 +24,7 @@ export default function App() {
 
   const handleSelect = useCallback((id: string) => {
     setFocusedId(id);
-    setPanelId(id);
+    setPanelId(null);
   }, []);
   const handleClosePanel = useCallback(() => setPanelId(null), []);
 
