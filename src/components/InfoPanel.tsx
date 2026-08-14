@@ -58,12 +58,12 @@ function Stat({ label, value, live }: { label: string; value: ReactNode; live?: 
 }
 
 export interface InfoPanelProps {
-  selectedId: string | null;
+  panelId: string | null;
   onClose: () => void;
 }
 
-export function InfoPanel({ selectedId, onClose }: InfoPanelProps) {
-  const def = selectedId ? bodyById.get(selectedId) : undefined;
+export function InfoPanel({ panelId, onClose }: InfoPanelProps) {
+  const def = panelId ? bodyById.get(panelId) : undefined;
   const [dist, setDist] = useState({ sun: 0, earth: 0 });
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export function InfoPanel({ selectedId, onClose }: InfoPanelProps) {
     <aside className="info-panel">
       <div className="info-panel-header">
         <h2>{def.name}</h2>
-        <button className="close-button" onClick={onClose} title="Close (Esc)">
+        <button className="close-button" onClick={onClose} title="Close panel">
           ✕
         </button>
       </div>
@@ -117,9 +117,21 @@ export function InfoPanel({ selectedId, onClose }: InfoPanelProps) {
       </div>
 
       <p className="esc-hint">
-        Camera is locked to {def.name}. <kbd>Esc</kbd> release · <kbd>right-drag</kbd> orbit ·{' '}
-        <kbd>scroll</kbd> zoom
+        Camera is locked to {def.name}. <kbd>Esc</kbd> or click empty space to release ·{' '}
+        <kbd>right-drag</kbd> orbit · <kbd>scroll</kbd> zoom
       </p>
     </aside>
+  );
+}
+
+export function InfoReopenButton({ bodyId, onOpen }: { bodyId: string; onOpen: () => void }) {
+  const name = bodyById.get(bodyId)?.name ?? 'Body';
+  return (
+    <button className="info-reopen" onClick={onOpen} title={`Show ${name} info`} type="button">
+      <span className="info-reopen-label">{name}</span>
+      <span className="info-reopen-icon" aria-hidden>
+        ℹ
+      </span>
+    </button>
   );
 }

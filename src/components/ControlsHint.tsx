@@ -43,7 +43,10 @@ export function ControlsHint() {
           <b>Click a body</b> <span>focus &amp; info</span>
         </li>
         <li>
-          <b>Esc</b> <span>release camera</span>
+          <b>Esc</b> <span>release camera focus</span>
+        </li>
+        <li>
+          <b>Click empty space</b> <span>release camera focus</span>
         </li>
       </ul>
       <p className="fine-print">

@@ -11,7 +11,7 @@ export function Starfield() {
 
   return (
     <>
-      <mesh>
+      <mesh raycast={() => {}}>
         <sphereGeometry args={[STARFIELD_RADIUS, 64, 32]} />
         <meshBasicMaterial map={map} side={BackSide} depthWrite={false} />
       </mesh>

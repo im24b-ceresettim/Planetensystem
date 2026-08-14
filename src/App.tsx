@@ -1,28 +1,44 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ControlsHint } from './components/ControlsHint';
-import { InfoPanel } from './components/InfoPanel';
+import { InfoPanel, InfoReopenButton } from './components/InfoPanel';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { Scene } from './components/Scene';
 import { TimeControls } from './components/TimeControls';
 
 export default function App() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [panelId, setPanelId] = useState<string | null>(null);
+
+  const handleReleaseFocus = useCallback(() => {
+    setFocusedId(null);
+    setPanelId(null);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedId(null);
+      if (e.key === 'Escape' && focusedId) handleReleaseFocus();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [focusedId, handleReleaseFocus]);
 
-  const handleSelect = useCallback((id: string) => setSelectedId(id), []);
-  const handleClose = useCallback(() => setSelectedId(null), []);
+  const handleSelect = useCallback((id: string) => {
+    setFocusedId(id);
+    setPanelId(id);
+  }, []);
+  const handleClosePanel = useCallback(() => setPanelId(null), []);
 
   return (
     <>
-      <Scene selectedId={selectedId} onSelect={handleSelect} />
-      <InfoPanel selectedId={selectedId} onClose={handleClose} />
+      <Scene
+        focusedId={focusedId}
+        onSelect={handleSelect}
+        onReleaseFocus={handleReleaseFocus}
+      />
+      <InfoPanel panelId={panelId} onClose={handleClosePanel} />
+      {focusedId && !panelId && (
+        <InfoReopenButton bodyId={focusedId} onOpen={() => setPanelId(focusedId)} />
+      )}
       <TimeControls />
       <ControlsHint />
       <LoadingOverlay />

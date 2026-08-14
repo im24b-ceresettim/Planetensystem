@@ -89,7 +89,7 @@ interface FocusState {
   from: Vector3;
 }
 
-export function CameraController({ selectedId }: { selectedId: string | null }) {
+export function CameraController({ focusedId }: { focusedId: string | null }) {
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
 
@@ -133,7 +133,7 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
           const dir = focus.current.localDir;
           const theta = Math.atan2(dir.x, dir.z) - dx * 0.006;
           const phi = MathUtils.clamp(
-            Math.acos(MathUtils.clamp(dir.y, -1, 1)) + dy * 0.006,
+            Math.acos(MathUtils.clamp(dir.y, -1, 1)) - dy * 0.006,
             0.2,
             Math.PI - 0.2,
           );
@@ -223,8 +223,8 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
   }, [gl, camera]);
 
   useEffect(() => {
-    if (selectedId) {
-      const h = bodyRegistry.get(selectedId);
+    if (focusedId) {
+      const h = bodyRegistry.get(focusedId);
       if (!h) return;
       h.orbitGroup.getWorldPosition(BODY_POS);
       WORLD_DIR.subVectors(camera.position, BODY_POS);
@@ -238,7 +238,7 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
       const localDir = WORLD_DIR.clone().applyQuaternion(SPIN_QUAT.invert());
       const distNow = camera.position.distanceTo(BODY_POS);
       focus.current = {
-        id: selectedId,
+        id: focusedId,
         localDir,
         dist: Math.max(h.radiusUnits * 4.2, h.radiusUnits + 0.9),
         distNow,
@@ -250,7 +250,7 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
       syncAnglesFromCamera();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, camera]);
+  }, [focusedId, camera]);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
