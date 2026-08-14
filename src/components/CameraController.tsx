@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Euler, MathUtils, PerspectiveCamera, Vector3 } from 'three';
+import { Euler, MathUtils, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import {
   CAMERA_MAX_RADIUS,
   CAMERA_MIN_RADIUS,
@@ -14,6 +14,8 @@ const RIGHT = new Vector3();
 const BODY_POS = new Vector3();
 const TARGET = new Vector3();
 const TO_BODY = new Vector3();
+const WORLD_DIR = new Vector3();
+const SPIN_QUAT = new Quaternion();
 const EULER = new Euler(0, 0, 0, 'YXZ');
 
 function halfFovTan(camera: PerspectiveCamera): number {
@@ -80,7 +82,7 @@ function resolveBodyPenetration(camera: PerspectiveCamera) {
 
 interface FocusState {
   id: string;
-  dir: Vector3;
+  localDir: Vector3;
   dist: number;
   distNow: number;
   t: number;
@@ -128,7 +130,7 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
 
       if (d.button === 2) {
         if (focus.current) {
-          const dir = focus.current.dir;
+          const dir = focus.current.localDir;
           const theta = Math.atan2(dir.x, dir.z) - dx * 0.006;
           const phi = MathUtils.clamp(
             Math.acos(MathUtils.clamp(dir.y, -1, 1)) + dy * 0.006,
@@ -225,17 +227,19 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
       const h = bodyRegistry.get(selectedId);
       if (!h) return;
       h.orbitGroup.getWorldPosition(BODY_POS);
-      const dir = camera.position.clone().sub(BODY_POS);
-      if (dir.lengthSq() < 1e-8) dir.set(0.4, 0.25, 1);
-      dir.normalize();
-      if (dir.y < 0.12) {
-        dir.y = 0.12;
-        dir.normalize();
+      WORLD_DIR.subVectors(camera.position, BODY_POS);
+      if (WORLD_DIR.lengthSq() < 1e-8) WORLD_DIR.set(0.4, 0.25, 1);
+      WORLD_DIR.normalize();
+      if (WORLD_DIR.y < 0.12) {
+        WORLD_DIR.y = 0.12;
+        WORLD_DIR.normalize();
       }
+      h.spinAnchor.getWorldQuaternion(SPIN_QUAT);
+      const localDir = WORLD_DIR.clone().applyQuaternion(SPIN_QUAT.invert());
       const distNow = camera.position.distanceTo(BODY_POS);
       focus.current = {
         id: selectedId,
-        dir,
+        localDir,
         dist: Math.max(h.radiusUnits * 4.2, h.radiusUnits + 0.9),
         distNow,
         t: 0,
@@ -256,8 +260,10 @@ export function CameraController({ selectedId }: { selectedId: string | null }) 
       const h = bodyRegistry.get(f.id);
       if (!h) return;
       h.orbitGroup.getWorldPosition(BODY_POS);
+      h.spinAnchor.getWorldQuaternion(SPIN_QUAT);
       f.distNow += (f.dist - f.distNow) * Math.min(1, dt * 8);
-      TARGET.copy(f.dir).multiplyScalar(f.distNow).add(BODY_POS);
+      WORLD_DIR.copy(f.localDir).applyQuaternion(SPIN_QUAT);
+      TARGET.copy(WORLD_DIR).multiplyScalar(f.distNow).add(BODY_POS);
       if (f.t < 1) {
         f.t = Math.min(1, f.t + dt / 0.85);
         const k = f.t * f.t * (3 - 2 * f.t);
