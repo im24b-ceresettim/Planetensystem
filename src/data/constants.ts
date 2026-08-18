@@ -23,6 +23,9 @@ export const CAMERA_MAX_RADIUS = 6000;
 export const DOLLY_FRACTION = 0.1;
 export const MIN_DOLLY_STEP = 0.05;
 
+/** Simulated mouse-drag rate for WASD (pixels per second). Tuned to match LMB feel. */
+export const KEYBOARD_PAN_PIXEL_RATE = 140;
+
 export const STARFIELD_RADIUS = 9000;
 export const STARFIELD_TEXTURE = '/textures/stars_milky_way.jpg';
 

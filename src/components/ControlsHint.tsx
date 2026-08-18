@@ -28,7 +28,7 @@ export function ControlsHint() {
       </h3>
       <ul>
         <li>
-          <b>Left-drag</b> <span>move horizontally</span>
+          <b>Left-drag / WASD</b> <span>move horizontally</span>
         </li>
         <li>
           <b>Right-drag</b> <span>look around</span>

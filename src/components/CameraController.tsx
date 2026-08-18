@@ -5,6 +5,7 @@ import {
   CAMERA_MAX_RADIUS,
   CAMERA_MIN_RADIUS,
   DOLLY_FRACTION,
+  KEYBOARD_PAN_PIXEL_RATE,
   MIN_DOLLY_STEP,
 } from '../data/constants';
 import { bodyRegistry } from '../state/simulation';
@@ -39,6 +40,32 @@ function nearestSurfaceDistance(camera: PerspectiveCamera): number {
 
 function panStep(camera: PerspectiveCamera): number {
   return nearestSurfaceDistance(camera) * halfFovTan(camera) * 0.004;
+}
+
+function applyHorizontalPan(
+  camera: PerspectiveCamera,
+  dx: number,
+  dy: number,
+  step: number,
+  yaw: number,
+) {
+  RIGHT.set(1, 0, 0).applyQuaternion(camera.quaternion);
+  RIGHT.y = 0;
+  RIGHT.normalize();
+  FORWARD.set(0, 0, -1).applyQuaternion(camera.quaternion);
+  FORWARD.y = 0;
+  if (FORWARD.lengthSq() < 1e-6) {
+    FORWARD.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+  }
+  FORWARD.normalize();
+  camera.position.addScaledVector(RIGHT, -dx * step);
+  camera.position.addScaledVector(FORWARD, dy * step);
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
 }
 
 /** Nearest ray–sphere hit distance along the view axis; null if no body in front. */
@@ -95,7 +122,7 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
 
   const yaw = useRef(0);
   const pitch = useRef(0);
-  const keys = useRef({ up: false, down: false });
+  const keys = useRef({ w: false, a: false, s: false, d: false, up: false, down: false });
   const drag = useRef<{ button: number; x: number; y: number } | null>(null);
   const focus = useRef<FocusState | null>(null);
 
@@ -143,19 +170,7 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
           pitch.current = MathUtils.clamp(pitch.current - dy * 0.0034, -1.55, 1.55);
         }
       } else if (d.button === 0 && !focus.current) {
-        const persp = camera as PerspectiveCamera;
-        const s = panStep(persp);
-        RIGHT.set(1, 0, 0).applyQuaternion(camera.quaternion);
-        RIGHT.y = 0;
-        RIGHT.normalize();
-        FORWARD.set(0, 0, -1).applyQuaternion(camera.quaternion);
-        FORWARD.y = 0;
-        if (FORWARD.lengthSq() < 1e-6) {
-          FORWARD.set(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
-        }
-        FORWARD.normalize();
-        camera.position.addScaledVector(RIGHT, -dx * s);
-        camera.position.addScaledVector(FORWARD, dy * s);
+        applyHorizontalPan(camera as PerspectiveCamera, dx, dy, panStep(camera as PerspectiveCamera), yaw.current);
       }
     };
 
@@ -187,17 +202,34 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
     const onContextMenu = (e: Event) => e.preventDefault();
 
     const onKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
       if (e.code === 'Space') {
         e.preventDefault();
         keys.current.up = true;
       } else if (e.key === 'Shift') {
         keys.current.down = true;
-      }
+      } else if (e.code === 'KeyW') keys.current.w = true;
+      else if (e.code === 'KeyA') keys.current.a = true;
+      else if (e.code === 'KeyS') keys.current.s = true;
+      else if (e.code === 'KeyD') keys.current.d = true;
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') keys.current.up = false;
       else if (e.key === 'Shift') keys.current.down = false;
+      else if (e.code === 'KeyW') keys.current.w = false;
+      else if (e.code === 'KeyA') keys.current.a = false;
+      else if (e.code === 'KeyS') keys.current.s = false;
+      else if (e.code === 'KeyD') keys.current.d = false;
+    };
+
+    const onBlur = () => {
+      keys.current.w = false;
+      keys.current.a = false;
+      keys.current.s = false;
+      keys.current.d = false;
+      keys.current.up = false;
+      keys.current.down = false;
     };
 
     el.addEventListener('pointerdown', onPointerDown);
@@ -208,6 +240,7 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
     el.addEventListener('contextmenu', onContextMenu);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
 
     return () => {
       el.removeEventListener('pointerdown', onPointerDown);
@@ -218,6 +251,7 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
       el.removeEventListener('contextmenu', onContextMenu);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gl, camera]);
@@ -278,6 +312,19 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
     camera.quaternion.setFromEuler(EULER.set(pitch.current, yaw.current, 0, 'YXZ'));
 
     const persp = camera as PerspectiveCamera;
+
+    let pdx = 0;
+    let pdy = 0;
+    if (keys.current.a) pdx += 1;
+    if (keys.current.d) pdx -= 1;
+    if (keys.current.w) pdy += 1;
+    if (keys.current.s) pdy -= 1;
+    if (pdx || pdy) {
+      const len = Math.hypot(pdx, pdy);
+      const step = panStep(persp) * KEYBOARD_PAN_PIXEL_RATE * dt;
+      applyHorizontalPan(persp, pdx / len, pdy / len, step, yaw.current);
+    }
+
     const verticalSpeed = nearestSurfaceDistance(persp) * 0.35;
     if (keys.current.up) camera.position.y += verticalSpeed * dt;
     if (keys.current.down) camera.position.y -= verticalSpeed * dt;
