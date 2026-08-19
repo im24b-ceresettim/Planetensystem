@@ -26,6 +26,15 @@ export const MIN_DOLLY_STEP = 0.05;
 /** Simulated mouse-drag rate for WASD (pixels per second). Tuned to match LMB feel. */
 export const KEYBOARD_PAN_PIXEL_RATE = 140;
 
+/** Exponential decay rate for pan momentum (higher = stops sooner). */
+export const PAN_MOMENTUM_FRICTION = 3.5;
+
+/** Stop coasting below this speed (pixels per second). */
+export const PAN_MOMENTUM_MIN_VELOCITY = 12;
+
+/** EMA blend for velocity samples during drag (0–1). */
+export const PAN_VELOCITY_SMOOTHING = 0.28;
+
 export const STARFIELD_RADIUS = 9000;
 export const STARFIELD_TEXTURE = '/textures/stars_milky_way.jpg';
 

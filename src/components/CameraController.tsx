@@ -7,6 +7,9 @@ import {
   DOLLY_FRACTION,
   KEYBOARD_PAN_PIXEL_RATE,
   MIN_DOLLY_STEP,
+  PAN_MOMENTUM_FRICTION,
+  PAN_MOMENTUM_MIN_VELOCITY,
+  PAN_VELOCITY_SMOOTHING,
 } from '../data/constants';
 import { bodyRegistry } from '../state/simulation';
 
@@ -125,6 +128,13 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
   const keys = useRef({ w: false, a: false, s: false, d: false, up: false, down: false });
   const drag = useRef<{ button: number; x: number; y: number } | null>(null);
   const focus = useRef<FocusState | null>(null);
+  const panMomentum = useRef({ vx: 0, vy: 0 });
+  const lastPanSample = useRef({ t: 0, x: 0, y: 0 });
+
+  const clearPanMomentum = () => {
+    panMomentum.current.vx = 0;
+    panMomentum.current.vy = 0;
+  };
 
   const syncAnglesFromCamera = () => {
     EULER.setFromQuaternion(camera.quaternion, 'YXZ');
@@ -144,6 +154,10 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
     const onPointerDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.button !== 2) return;
       drag.current = { button: e.button, x: e.clientX, y: e.clientY };
+      if (e.button === 0) {
+        clearPanMomentum();
+        lastPanSample.current = { t: performance.now(), x: e.clientX, y: e.clientY };
+      }
       el.setPointerCapture(e.pointerId);
     };
 
@@ -171,6 +185,17 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
         }
       } else if (d.button === 0 && !focus.current) {
         applyHorizontalPan(camera as PerspectiveCamera, dx, dy, panStep(camera as PerspectiveCamera), yaw.current);
+
+        const now = performance.now();
+        const sampleDt = (now - lastPanSample.current.t) / 1000;
+        if (sampleDt > 0 && sampleDt < 0.2) {
+          const instVx = dx / sampleDt;
+          const instVy = dy / sampleDt;
+          const blend = PAN_VELOCITY_SMOOTHING;
+          panMomentum.current.vx = panMomentum.current.vx * (1 - blend) + instVx * blend;
+          panMomentum.current.vy = panMomentum.current.vy * (1 - blend) + instVy * blend;
+        }
+        lastPanSample.current = { t: now, x: e.clientX, y: e.clientY };
       }
     };
 
@@ -230,6 +255,7 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
       keys.current.d = false;
       keys.current.up = false;
       keys.current.down = false;
+      clearPanMomentum();
     };
 
     el.addEventListener('pointerdown', onPointerDown);
@@ -258,6 +284,7 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
 
   useEffect(() => {
     if (focusedId) {
+      clearPanMomentum();
       const h = bodyRegistry.get(focusedId);
       if (!h) return;
       h.orbitGroup.getWorldPosition(BODY_POS);
@@ -312,6 +339,19 @@ export function CameraController({ focusedId }: { focusedId: string | null }) {
     camera.quaternion.setFromEuler(EULER.set(pitch.current, yaw.current, 0, 'YXZ'));
 
     const persp = camera as PerspectiveCamera;
+
+    if (!drag.current) {
+      const { vx, vy } = panMomentum.current;
+      const speed = Math.hypot(vx, vy);
+      if (speed > PAN_MOMENTUM_MIN_VELOCITY) {
+        applyHorizontalPan(persp, vx * dt, vy * dt, panStep(persp), yaw.current);
+        const decay = Math.exp(-PAN_MOMENTUM_FRICTION * dt);
+        panMomentum.current.vx *= decay;
+        panMomentum.current.vy *= decay;
+      } else {
+        clearPanMomentum();
+      }
+    }
 
     let pdx = 0;
     let pdy = 0;
