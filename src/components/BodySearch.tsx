@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BODIES, bodyById, type BodyDef } from '../data/bodies';
 
+// test comment
+
 function bodySubtitle(def: BodyDef): string {
   switch (def.type) {
     case 'star':
